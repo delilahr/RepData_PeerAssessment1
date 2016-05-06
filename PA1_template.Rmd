@@ -1,0 +1,141 @@
+---
+title: "Reproducible Research Project 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warnings = FALSE)
+```
+
+## Loading and preprocessing the data
+
+```{r readdata}
+data <- read.csv("activity.csv", colClasses = "character")
+data$steps <- as.numeric(data$steps)
+data$interval <- as.numeric(data$interval)
+```
+
+## What is mean total number of steps taken per day?
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+1. Calculate the total number of steps taken per day
+
+
+```{r totalsteps}
+library(ggplot2)
+totalSteps <- tapply(as.numeric(data$steps), data$date, sum, na.rm = TRUE)
+totalSteps <- data.frame(Steps = totalSteps, Date = names(totalSteps))
+print(totalSteps)
+```
+
+2. If you do not understand the difference between a histogram and a barplot, research the difference between them. Make a histogram of the total number of steps taken each day
+
+```{r histogram}
+hist(totalSteps$Steps, xlab = "Total number of steps", main = "Histogram of total number of steps per day",
+     col = "light blue", ylim = c(0,30))
+```
+ 
+3.Calculate and report the mean and median of the total number of steps taken per day
+
+```{r meanmedian}
+meanvalue <- format(round(mean(totalSteps$Steps), 2), nsmall = 2)
+median <- as.integer(median(totalSteps$Steps))
+```
+
+The mean is: `r meanvalue`
+
+The median is: `r median`
+
+## What is the average daily activity pattern?
+
+Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r timeseriesplot}
+averageSteps <- tapply(as.numeric(data$steps), data$interval, mean, na.rm = TRUE)
+averageSteps <- data.frame(Steps = averageSteps, Interval = as.numeric(names(averageSteps)))
+plot(averageSteps$Interval,averageSteps$Steps, type = "l", ylab = "Average number of steps", xlab="5-minute intervals", main = "Average number of steps across 5-minute intervals")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r maxsteps}
+orderedAverageSteps <- averageSteps[order(-averageSteps$Steps),]
+max <- orderedAverageSteps[1,2]
+```
+
+The 5-minute interval with the maximum number of steps is: `r max` 
+
+##Imputing missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r}
+
+incompleteRows <- nrow(data[!complete.cases(data),])
+```
+
+The total number of rows with NAs is: `r incompleteRows`
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r fillin, results=FALSE, warning = FALSE, comment = FALSE}
+##I decided to fill in NA values with the mean of the steps for the days with NA values, with is 0 for all of them
+for(i in 1:nrow(data)){
+  if(is.na(data[i,])) {data$steps[i] = 0 }
+}
+
+```
+
+
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+totalSteps2 <- tapply(as.numeric(data$steps), data$date, sum, na.rm = TRUE)
+totalSteps2 <- data.frame(Steps = totalSteps2, Date = names(totalSteps2))
+meanvalue2 <- format(round(mean(totalSteps$Steps), 2), nsmall = 2)
+median2 <- as.integer(median(totalSteps$Steps))
+hist(totalSteps2$Steps, xlab = "Total number of steps", main = "Histogram of total number of steps per day",
+     col = "light blue", ylim = c(0,30))
+```
+
+The mean is: `r meanvalue2`
+
+The median is: `r median2`
+
+The mean and median values did not differ from those of the first part of the assignment. I decided to use the average number of steps for each day to fill in missing values, but since there was no step data for those days with missing values, the NAs were replaced with 0, and that had no impact on the estimates.
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+```{r factors}
+data$date <- as.Date(data$date,format("%Y-%m-%d"))
+data$date <- weekdays(data$date, abbreviate = FALSE)
+
+data$date <- gsub("Monday","Weekday", data$date)
+data$date <- gsub("Tuesday","Weekday", data$date)
+data$date <- gsub("Wednesday","Weekday", data$date)
+data$date <- gsub("Thursday","Weekday", data$date)
+data$date <- gsub("Friday","Weekday", data$date)
+data$date <- gsub("Saturday","Weekend", data$date)
+data$date <- gsub("Sunday","Weekend", data$date)
+
+data <- transform(data, date = factor(date))
+```
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+```{r panelplot}
+library(ggplot2)
+library(reshape2)
+averageSteps2 <- xtabs(steps ~ interval + date, data = data)
+averageSteps2 <- melt(averageSteps2, id = c("interval","date"))
+ggplot(averageSteps2, aes(x = interval, y = value)) + geom_line() + facet_wrap(~date, nrow=2) + labs( x = "5-minute intervals", y = "Average number of steps")
+
+```
